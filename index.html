@@ -36,50 +36,15 @@
     <br>
     <div id="db" class="db-status">Database</div><br />
     <div id="agent">
-        <div id="run">wild type 1 - no humans</div><br />
-        <input type="text" id="human_add_rate" value="100" />Human Add Rate<br />
-     <!--   <input type="checkbox" id="seeds_metabolism" />Seeds Impact Metabolism<br />
-        <input type="text" id="metabolic_threshold" value="30" />Metabolic Threshold<br />
-        <input type="text" id="metabolic_unit" value="5" />Metabolic Unit<br />
-        <input type="text" id="skin_size" value="30" />Water Skin Size<br />
-        <input type="text" id="scoop_size" value="5" />Scoop Size<br />
-        <input type="text" id="basket_size" value="400" />Seed Basket Size<br /> -->
-        <input type="checkbox" id="individualSeedSeparation" checked/>Individuals Select Planting Seeds<br />
-        <input type="checkbox" id="sharedPlantingSeeds" checked/>Share Planting Seeds<br />
-        <input type="text" id="plantSelectionChance" value="1.0" />% chance to selectively plant<br />
-        <input type="text" id="plantSelectionStrength" value="0.2" />% of seeds to plant<br />
-        <label for="seed_selection">Harvesting strategy:</label>
-        <select id="seed_selection">
-            <option value="none">No Harvest</option>
-            <option value="random">Harvest Randomly</option>
-            <option value="weight">Max Seed Weight</option>
-            <option value="deepRoots">Max Root Depth</option>
-            <option value="fecundity">Max Number of Seeds</option>
-            <option value="fruitEnergy">Max Nutritional Value</option>
-            <option value="dispersal">Max Dispersal</option>
-            <option value="minweight">Min Seed Weight</option>
-            <option value="mindeepRoots">Min Root Depth</option>
-            <option value="minfecundity">Min Number of Seeds</option>
-            <option value="minfruitEnergy">Min Nutritional Value</option>
-            <option value="mindispersal">Min Dispersal</option>
-        </select><br />
-        <label for="plant_selection">Planting strategy:</label>
-        <select id="plant_selection">
-            <option value="none">No Planting</option>
-            <option value="random">Random Seeds</option>
-            <option value="bottom">First Harvested</option>
-            <option value="top">Last Harvested</option>
-            <option value="weight">Max Seed Weight</option>
-            <option value="deepRoots">Max Root Depth</option>
-            <option value="fecundity">Max Number of Seeds</option>
-            <option value="fruitEnergy">Max Nutritional Value</option>
-            <option value="dispersal">Max Dispersal</option>
-            <option value="minweight">Min Seed Weight</option>
-            <option value="mindeepRoots">Min Root Depth</option>
-            <option value="minfecundity">Min Number of Seeds</option>
-            <option value="minfruitEnergy">Min Nutritional Value</option>
-            <option value="mindispersal">Min Dispersal</option>
-        </select><br />
+        <div id="run">Exam Simulation</div><br />
+        <input type="text" id="num_students" value="10000" />Number of Students<br />
+        <!--inputs for parameter run settings--> 
+        <input type="checkbox" id="ambitionOptimal" />Ambition Optimal<br />
+        <input type="checkbox" id="confidenceOptimal" />Confidence Optimal<br />
+        <input type="checkbox" id="focusOptimal" />Focus Optimal<br />
+        <input type="checkbox" id="enduranceOptimal" />Endurance Optimal<br />
+        <input type="checkbox" id="guessOptimal" />Guess Optimal<br />
+        <input type="checkbox" id="examStratOptimal" />Exam Strategy Optimal<br />
     </div>
 	<br>
     <input type="radio" id="seeds" name="settings" value="seeds" checked>

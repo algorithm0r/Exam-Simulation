@@ -69,7 +69,7 @@ class Invigilator {
         }
     }
 
-    drawHistograms(ctx, histograms, x, barHeight = 1) {
+    drawHistograms(ctx, histograms, x, barHeight = 1, labels = []) {
         let colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500"];
 
         histograms.forEach((histogram, index) => {
@@ -89,15 +89,19 @@ class Invigilator {
                     ctx.strokeRect(xPos, y, barWidth, height);
                 }
             }
+            ctx.fillStyle = "Black";
+            if (labels.length > 0) {
+                ctx.fillText(labels[index], x + barWidth*50 - 25, (index + 1) * (histogramHeight + histogramPad));
+            }
         });
     }
 
-    drawHistogram(ctx) {
+    drawHistogram(ctx, xPos) {
         // draw histogram
         let histogramHeight = 750;
         let barWidth = 4;
         let barHeight = 1;
-        ctx.strokeRect(902, 0, this.histogram.length * barWidth, histogramHeight);
+        ctx.strokeRect(xPos, 0, this.histogram.length * barWidth, histogramHeight);
         // let fiveSum = 0;
         // let tenSum = 0;
         // ctx.fillStyle = "LightGray";
@@ -116,7 +120,7 @@ class Invigilator {
         for (let i = 0; i < this.histogram.length; i++) {
             let height = this.histogram[i] * 2;
             // fiveSum += height;
-            let x = 902 + (i + 1) * barWidth;
+            let x = xPos + (i + 1) * barWidth;
             // let y = histogramHeight - fiveSum;
             if (i % 5 === 0) {
                 ctx.beginPath();
@@ -135,14 +139,14 @@ class Invigilator {
         ctx.fillStyle = rgb(72, 72, 72);
         for (let i = 0; i < this.histogram.length; i++) {
             let height = this.histogram[i] * barHeight;
-            let x = 902 + i * barWidth;
+            let x = xPos + i * barWidth;
             let y = histogramHeight - height;
             if (height > 0) {
                 ctx.fillRect(x, y, barWidth, height);
                 ctx.strokeRect(x, y, barWidth, height);
                 // y += height;
             }    
-            for (let j = 0; j < PARAMS.numTraits; j++) {
+            for (let j = 0; j < PARAMS.numTraits + 1; j++) {
                 ctx.fillStyle = colors[j];
                 height = this.histograms[j][i] * barHeight;
                 if (height > 0) {
@@ -173,14 +177,20 @@ class Invigilator {
         //     this.students[i].draw(ctx);
         // }
 
-        this.drawHistogram(ctx);
-        this.drawHistograms(ctx, this.histograms, 0, 0.75);
-        this.drawHistograms(ctx, this.goodTraitHistograms, 210, 0.5);
-        this.drawHistograms(ctx, this.badTraitHistograms, 420, 0.5);
+        let histogramX = 1070;
+        this.drawHistogram(ctx, histogramX);
+        this.drawHistograms(ctx, this.histograms, 0, 0.75,
+            ["0 bad traits", "1 bad trait", "2 bad traits", "3 bad traits", "4 bad traits", "5 bad traits", "6 bad traits"]);
+        this.drawHistograms(ctx, this.goodTraitHistograms, 210, 0.5,
+            ["Ambition High", "Confidence High", "Focus High", "Endurance High", "Exam Strategy Good", "Guessing At End"]
+        );
+        this.drawHistograms(ctx, this.badTraitHistograms, 420, 0.5,
+            ["Ambition Low", "Confidence Low", "Focus Low", "Endurance Low", "Exam Strategy Bad", "Not Guessing At End"]
+        );
         this.drawHistograms(ctx, this.controlHistograms, 630, 1);
 
         const timeLength = Math.min(this.minutes/PARAMS.timeLimit,1)*400;
-        ctx.fillRect(902, 760, timeLength, 10) 
-        ctx.strokeRect(902, 760, 400, 10);
+        ctx.fillRect(histogramX, 760, timeLength, 10) 
+        ctx.strokeRect(histogramX, 760, 400, 10);
     }
 }

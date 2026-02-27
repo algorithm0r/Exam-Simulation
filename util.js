@@ -30,16 +30,16 @@ var PARAMS = {
     timeLimit: 360,
 
     // run settings
-    ambitionOptimal: true,
-    confidenceOptimal: true,
+    ambitionOptimal: false,
+    confidenceOptimal: false,
     focusOptimal: false,
-    enduranceOptimal: true,
-    guessOptimal: true,
-    examStratOptimal: true,
+    enduranceOptimal: false,
+    guessOptimal: false,
+    examStratOptimal: false,
 
     // students
     numStudents: 10000,
-    numTraits: 7,
+    numTraits: 6,
 
     // database
     db: "domesticationDB",
@@ -108,6 +108,14 @@ function databaseDisconnected() {
     dbDiv.classList.add("db-disconnected");
 };
 
-function loadParameters() {};
+function loadParameters() {
+    PARAMS.numStudents = parseInt(document.getElementById("num_students").value);
+    PARAMS.ambitionOptimal = document.getElementById("ambitionOptimal").checked;
+    PARAMS.confidenceOptimal = document.getElementById("confidenceOptimal").checked;
+    PARAMS.focusOptimal = document.getElementById("focusOptimal").checked;
+    PARAMS.enduranceOptimal = document.getElementById("enduranceOptimal").checked;
+    PARAMS.guessOptimal = document.getElementById("guessOptimal").checked;
+    PARAMS.examStratOptimal = document.getElementById("examStratOptimal").checked;
+};
 
 const runs = [];

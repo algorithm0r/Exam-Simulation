@@ -21,6 +21,7 @@ if (window.io !== undefined) {
 
 function reset() {
 	gameEngine.entities = [];
+	loadParameters();
 	gameEngine.addEntity(new Invigilator());
 };
 
