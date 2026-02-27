@@ -29,6 +29,14 @@ var PARAMS = {
     reversedExam: reversed,
     timeLimit: 360,
 
+    // run settings
+    ambitionOptimal: true,
+    confidenceOptimal: true,
+    focusOptimal: false,
+    enduranceOptimal: true,
+    guessOptimal: true,
+    examStratOptimal: true,
+
     // students
     numStudents: 10000,
     numTraits: 7,
