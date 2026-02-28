@@ -2,195 +2,259 @@ class Invigilator {
     constructor() {
         gameEngine.invigilator = this;
 
-        this.students = [];
+        // Build all 64 groups (one per combination of 6 binary traits)
+        this.groups = [];
 
-        for (let i = 0; i < PARAMS.numStudents; i++) {
-            this.students.push(new Student(i));
+        for (let mask = 0; mask < 64; mask++) {
+            const badCount = countBits(mask);
+            const label = mask.toString(2).padStart(6, '0');
+
+            // Build raw config: for each trait, pick good or bad value based on mask bit
+            // Trait i corresponds to bit (5 - i), so trait 0 is the MSB (leftmost in label)
+            const config = {};
+            PARAMS.traits.forEach((trait, i) => {
+                const isBad = (mask >> (5 - i)) & 1;
+                config[trait.key] = isBad ? trait.bad : trait.good;
+            });
+
+            const students = [];
+            for (let j = 0; j < PARAMS.popPerGroup; j++) {
+                students.push(new Student(config, badCount));
+            }
+
+            this.groups.push({
+                students,
+                mask,
+                badCount,
+                label,
+                histogram: new Array(PARAMS.numQuestions + 1).fill(0)
+            });
         }
 
-        this.histogram = new Array(PARAMS.numQuestions + 1).fill(0);
-        this.histograms = new Array(PARAMS.numTraits).fill().map(() => new Array(PARAMS.numQuestions + 1).fill(0));
-        this.goodTraitHistograms = new Array(PARAMS.numTraits).fill().map(() => new Array(PARAMS.numTraits + 1).fill(0));
-        this.badTraitHistograms = new Array(PARAMS.numTraits).fill().map(() => new Array(PARAMS.numTraits + 1).fill(0));
-        this.controlHistogram = new Array(PARAMS.numQuestions + 1).fill(0);
-        this.controlHistograms = [this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram];
+        // Sort by bad trait count (ascending), then by mask for stable ordering within count
+        this.groups.sort((a, b) => a.badCount - b.badCount || a.mask - b.mask);
 
         this.minutes = 0;
+
+        this.fullPop = this.getStackData(0);
     }
 
     update() {
         if (this.minutes++ < PARAMS.timeLimit) {
-            this.histogram = new Array(PARAMS.numQuestions + 1).fill(0);
-            this.histograms = new Array(PARAMS.numTraits + 1).fill().map(() => new Array(PARAMS.numQuestions + 1).fill(0));
-            this.goodTraitHistograms = new Array(PARAMS.numTraits).fill().map(() => new Array(PARAMS.numQuestions + 1).fill(0));
-            this.badTraitHistograms = new Array(PARAMS.numTraits).fill().map(() => new Array(PARAMS.numQuestions + 1).fill(0));
-            this.controlHistogram = new Array(PARAMS.numQuestions + 1).fill(0);
-            this.controlHistograms = [this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram, this.controlHistogram];
-            for (let i = 0; i < PARAMS.numStudents; i++) {
-                this.students[i].update();
-                this.histogram[this.students[i].score]++;
-                this.histograms[this.students[i].badTraits][this.students[i].score]++;
-
-                if(this.students[i].badTraits === 0) {
-                    this.controlHistogram[this.students[i].score]++;
-                }
-
-                if(this.students[i].ambitionLow) {
-                    this.badTraitHistograms[0][this.students[i].score]++;
-                } else {
-                    this.goodTraitHistograms[0][this.students[i].score]++;
-                }
-                if(this.students[i].confidenceLow) {
-                    this.badTraitHistograms[1][this.students[i].score]++;
-                } else {
-                    this.goodTraitHistograms[1][this.students[i].score]++;
-                }
-                if(this.students[i].focusLow) {
-                    this.badTraitHistograms[2][this.students[i].score]++;
-                } else {  
-                    this.goodTraitHistograms[2][this.students[i].score]++;
-                }
-                if(this.students[i].enduranceLow) {
-                    this.badTraitHistograms[3][this.students[i].score]++;
-                } else {
-                    this.goodTraitHistograms[3][this.students[i].score]++;
-                }
-                if(this.students[i].examStrategyBad) {
-                    this.badTraitHistograms[4][this.students[i].score]++;
-                } else {
-                    this.goodTraitHistograms[4][this.students[i].score]++; 
-                }
-                if(this.students[i].guessAllRemaining) {
-                    this.goodTraitHistograms[5][this.students[i].score]++;
-                } else {
-                    this.badTraitHistograms[5][this.students[i].score]++;
+            for (const group of this.groups) {
+                group.histogram = new Array(PARAMS.numQuestions + 1).fill(0);
+                for (const student of group.students) {
+                    student.update();
+                    group.histogram[student.score]++;
                 }
             }
         }
+
+        this.fullPop = this.getStackData(0);
     }
 
-    drawHistograms(ctx, histograms, x, barHeight = 1, labels = []) {
-        let colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500"];
+    // ─── Data aggregation ────────────────────────────────────────────────────
 
-        histograms.forEach((histogram, index) => {
-            let histogramHeight = 100;
-            let histogramPad = 10;
-            let barWidth = 2;
-            ctx.fillStyle = rgb(72, 72, 72);
-            ctx.strokeRect(x + 2, index * (histogramHeight + histogramPad), histogram.length * barWidth, histogramHeight);
-
-            for (let i = 0; i < histogram.length; i++) {
-                ctx.fillStyle = colors[index];
-                let height = histogram[i] * barHeight;
-                let xPos = x + 2 + i * barWidth;
-                let y = (index + 1) * (histogramHeight + histogramPad) - height - histogramPad;
-                if (height > 0) {
-                    ctx.fillRect(xPos, y, barWidth, height);
-                    ctx.strokeRect(xPos, y, barWidth, height);
+    getStackData(viewMode) {
+        if (viewMode === 0) {
+            // Simple sum — one grey layer
+            const total = new Array(PARAMS.numQuestions + 1).fill(0);
+            for (const group of this.groups) {
+                for (let s = 0; s <= PARAMS.numQuestions; s++) {
+                    total[s] += group.histogram[s];
                 }
             }
-            ctx.fillStyle = "Black";
-            if (labels.length > 0) {
-                ctx.fillText(labels[index], x + barWidth*50 - 25, (index + 1) * (histogramHeight + histogramPad));
+            return { layers: [total], colors: ["#808080"] };
+
+        } else if (viewMode === 1) {
+            // Stack by bad trait count (7 layers, 0–6)
+            const layers = Array.from({ length: 7 }, () => new Array(PARAMS.numQuestions + 1).fill(0));
+            for (const group of this.groups) {
+                for (let s = 0; s <= PARAMS.numQuestions; s++) {
+                    layers[group.badCount][s] += group.histogram[s];
+                }
             }
-        });
+            return { layers, colors: PARAMS.badCountColors };
+
+        } else {
+            // Stack by a single trait (viewMode 2–7 → trait index 0–5)
+            // Layer 0 = good, Layer 1 = bad
+            const traitIdx = viewMode - 2;
+            const layers = [
+                new Array(PARAMS.numQuestions + 1).fill(0),  // good
+                new Array(PARAMS.numQuestions + 1).fill(0)   // bad
+            ];
+            for (const group of this.groups) {
+                const isBad = (group.mask >> (5 - traitIdx)) & 1;
+                for (let s = 0; s <= PARAMS.numQuestions; s++) {
+                    layers[isBad][s] += group.histogram[s];
+                }
+            }
+            return { layers, colors: ["#4D96FF", "#FF6B6B"] };
+        }
     }
 
-    drawHistogram(ctx, xPos) {
-        // draw histogram
-        let histogramHeight = 750;
-        let barWidth = 4;
-        let barHeight = 1;
-        ctx.strokeRect(xPos, 0, this.histogram.length * barWidth, histogramHeight);
-        // let fiveSum = 0;
-        // let tenSum = 0;
-        // ctx.fillStyle = "LightGray";
-        // for (let i = 0; i < this.histogram.length; i++) {
-        //     let height = this.histogram[i] * 2;
-        //     tenSum += height;
-        //     let x = 802 + (i + 1) * barWidth;
-        //     let y = histogramHeight - tenSum;
-        //     if (i % 10 === 0 && tenSum > 0) {
-        //         ctx.fillRect(x, y, -barWidth * 10, tenSum);
-        //         ctx.strokeRect(x, y, -barWidth * 10, tenSum);
-        //         tenSum = 0;
-        //     }
-        // }
-        ctx.fillStyle = "Grey";
-        for (let i = 0; i < this.histogram.length; i++) {
-            let height = this.histogram[i] * 2;
-            // fiveSum += height;
-            let x = xPos + (i + 1) * barWidth;
-            // let y = histogramHeight - fiveSum;
-            if (i % 5 === 0) {
+    // ─── Drawing ─────────────────────────────────────────────────────────────
+
+    drawSmallHistogram(ctx, group, cellX, cellY, cellW, cellH) {
+        const color   = PARAMS.badCountColors[group.badCount];
+        const padding = 2;
+        const labelH  = 11;
+
+        // white background
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(cellX, cellY, cellW, cellH);
+
+        // colored border (bad count color)
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cellX + 1, cellY + 1, cellW - 2, cellH - 2);
+        ctx.lineWidth = 1;
+
+        // 6-bit label
+        ctx.font = "8px monospace";
+        ctx.fillStyle = "#000000";
+        ctx.textAlign = "center";
+        ctx.fillText(group.label, cellX + cellW / 2, cellY + labelH);
+
+        const hX = cellX + padding;
+        const hY = cellY + labelH + 1;
+        const hW = cellW - 2 * padding;
+        const hH = cellH - labelH - 1 - padding;
+
+        // Save context and create clipping region
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(hX, hY, hW, hH);
+        ctx.clip();
+
+        const yScale = 2;
+
+        ctx.fillStyle = "lightgrey";
+        for (let s = 0; s <= PARAMS.numQuestions; s++) {
+            const greyHeight = (this.fullPop.layers[0][s] / PARAMS.popPerGroup) * hH * yScale;
+            if (greyHeight > 0) {
+                const x = hX + Math.floor(s * hW / (PARAMS.numQuestions + 1));
+                ctx.fillRect(x, hY + hH - greyHeight, 1, greyHeight);
+            }
+        }
+
+        ctx.fillStyle = color;
+        for (let s = 0; s <= PARAMS.numQuestions; s++) {
+            const height = (group.histogram[s] / PARAMS.popPerGroup) * hH * yScale;
+            if (height > 0) {
+                const x = hX + Math.floor(s * hW / (PARAMS.numQuestions + 1));
+                ctx.fillRect(x, hY + hH - height, 1, height);
+            }
+        }
+
+        // Restore context (remove clipping)
+        ctx.restore();
+    }
+
+    drawLargeHistogram(ctx) {
+        const viewMode = parseInt(document.getElementById('histView').value);
+        const histX          = 810;
+        const histogramHeight = 720;
+        const barWidth        = 7;
+
+        const { layers, colors } = this.getStackData(viewMode);
+
+        // Compute column totals for scaling
+        const totals = new Array(PARAMS.numQuestions + 1).fill(0);
+        for (const layer of layers) {
+            for (let s = 0; s <= PARAMS.numQuestions; s++) {
+                totals[s] += layer[s];
+            }
+        }
+        const maxVal = Math.max(...totals, 1);
+        const scale  = histogramHeight / maxVal;
+
+        // Outer border
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(histX, 0, (PARAMS.numQuestions + 1) * barWidth, histogramHeight);
+
+        // Tick marks every 10 questions
+        ctx.strokeStyle = "#888888";
+        for (let s = 0; s <= PARAMS.numQuestions; s++) {
+            if (s % 10 === 0) {
+                const x = histX + s * barWidth;
                 ctx.beginPath();
                 ctx.moveTo(x, histogramHeight);
-                ctx.lineTo(x, histogramHeight + barWidth);
+                ctx.lineTo(x, histogramHeight + 5);
                 ctx.stroke();
-                // if (fiveSum > 0) {
-                //     ctx.fillRect(x, y, -barWidth * 5, fiveSum);
-                //     ctx.strokeRect(x, y, -barWidth * 5, fiveSum);
-                //     fiveSum = 0;
-                // }
+                ctx.fillStyle = "#000000";
+                ctx.font = "9px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(s, x, histogramHeight + 15);
             }
         }
-        let colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500"];
 
-        ctx.fillStyle = rgb(72, 72, 72);
-        for (let i = 0; i < this.histogram.length; i++) {
-            let height = this.histogram[i] * barHeight;
-            let x = xPos + i * barWidth;
-            let y = histogramHeight - height;
-            if (height > 0) {
-                ctx.fillRect(x, y, barWidth, height);
-                ctx.strokeRect(x, y, barWidth, height);
-                // y += height;
-            }    
-            for (let j = 0; j < PARAMS.numTraits + 1; j++) {
-                ctx.fillStyle = colors[j];
-                height = this.histograms[j][i] * barHeight;
+        // Stacked bars (bottom to top: best traits at bottom, worst on top for view 1)
+        for (let s = 0; s <= PARAMS.numQuestions; s++) {
+            let stackY = histogramHeight;
+            for (let l = 0; l < layers.length; l++) {
+                const height = layers[l][s] * scale;
                 if (height > 0) {
-                    ctx.fillRect(x, y, barWidth, height);
-                    ctx.strokeRect(x, y, barWidth, height);
-                    y += height;
-                }    
+                    stackY -= height;
+                    ctx.fillStyle = colors[l];
+                    ctx.fillRect(histX + s * barWidth, stackY, barWidth, height);
+                    ctx.strokeRect(histX + s * barWidth, stackY, barWidth, height);
+                }
             }
         }
 
-        // for (let j = 0; j < PARAMS.numTraits; j++) {
-        //     ctx.fillStyle = colors[j];
-        //     for (let i = 0; i < this.histogram.length; i++) {
-        //         let height = this.histograms[j][i] * 1;
-        //         let x = 902 + i * barWidth;
-        //         let y = histogramHeight - height;
-        //         if (height > 0) {
-        //             ctx.fillRect(x, y, barWidth, height);
-        //             ctx.strokeRect(x, y, barWidth, height);
-        //         }
-        //     }
-        // }
+        // Legend
+        const legendX = histX;
+        const legendY = histogramHeight + 25;
+        ctx.font = "10px Arial";
+        ctx.textAlign = "left";
+
+        if (viewMode === 0) {
+            ctx.fillStyle = "#808080";
+            ctx.fillRect(legendX, legendY, 12, 10);
+            ctx.fillStyle = "#000000";
+            ctx.fillText("All students", legendX + 16, legendY + 9);
+
+        } else if (viewMode === 1) {
+            for (let c = 0; c < 7; c++) {
+                const lx = legendX + c * 105;
+                ctx.fillStyle = PARAMS.badCountColors[c];
+                ctx.fillRect(lx, legendY, 12, 10);
+                ctx.fillStyle = "#000000";
+                ctx.fillText(c + " bad traits", lx + 16, legendY + 9);
+            }
+        } else {
+            const traitName = PARAMS.traits[viewMode - 2].name;
+            ctx.fillStyle = "#4D96FF";
+            ctx.fillRect(legendX, legendY, 12, 10);
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Good " + traitName, legendX + 16, legendY + 9);
+            ctx.fillStyle = "#FF6B6B";
+            ctx.fillRect(legendX + 120, legendY, 12, 10);
+            ctx.fillStyle = "#000000";
+            ctx.fillText("Bad " + traitName, legendX + 136, legendY + 9);
+        }
+
+        // Time progress bar
+        const timeLength = Math.min(this.minutes / PARAMS.timeLimit, 1) * (PARAMS.numQuestions + 1) * barWidth;
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(histX, histogramHeight + 45, timeLength, 8);
+        ctx.strokeRect(histX, histogramHeight + 45, (PARAMS.numQuestions + 1) * barWidth, 8);
     }
 
     draw(ctx) {
-        // draw students
-        // for (let i = 0; i < PARAMS.numStudents; i++) {
-        //     this.students[i].draw(ctx);
-        // }
+        const cellW = 100;
+        const cellH = 100;
 
-        let histogramX = 1070;
-        this.drawHistogram(ctx, histogramX);
-        this.drawHistograms(ctx, this.histograms, 0, 0.75,
-            ["0 bad traits", "1 bad trait", "2 bad traits", "3 bad traits", "4 bad traits", "5 bad traits", "6 bad traits"]);
-        this.drawHistograms(ctx, this.goodTraitHistograms, 210, 0.5,
-            ["Ambition High", "Confidence High", "Focus High", "Endurance High", "Exam Strategy Good", "Guessing At End"]
-        );
-        this.drawHistograms(ctx, this.badTraitHistograms, 420, 0.5,
-            ["Ambition Low", "Confidence Low", "Focus Low", "Endurance Low", "Exam Strategy Bad", "Not Guessing At End"]
-        );
-        this.drawHistograms(ctx, this.controlHistograms, 630, 1);
+        // 8x8 grid of small histograms, sorted by bad count (filled row by row)
+        for (let i = 0; i < this.groups.length; i++) {
+            const col = i % 8;
+            const row = Math.floor(i / 8);
+            this.drawSmallHistogram(ctx, this.groups[i], col * cellW, row * cellH, cellW, cellH);
+        }
 
-        const timeLength = Math.min(this.minutes/PARAMS.timeLimit,1)*400;
-        ctx.fillRect(histogramX, 760, timeLength, 10) 
-        ctx.strokeRect(histogramX, 760, 400, 10);
+        this.drawLargeHistogram(ctx);
     }
 }

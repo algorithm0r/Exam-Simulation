@@ -15,8 +15,8 @@ var shuffled = shuffleArray(exam);
 // simulation parameters
 var PARAMS = {
     // visualization
-    dimension: { // pixels width/height for drawing students
-        width: 20, 
+    dimension: {
+        width: 20,
         height: 80
     },
     // sim
@@ -29,20 +29,29 @@ var PARAMS = {
     reversedExam: reversed,
     timeLimit: 360,
 
-    // run settings
-    ambitionOptimal: false,
-    confidenceOptimal: false,
-    focusOptimal: false,
-    enduranceOptimal: false,
-    guessOptimal: false,
-    examStratOptimal: false,
-
     // students
-    numStudents: 10000,
+    popPerGroup: 200,   // students per trait combination group (64 groups total)
     numTraits: 6,
 
+    // traits: order here defines the bit order in the 6-bit group label (index 0 = MSB)
+    // key must match the property name used in Student constructor
+    traits: [
+        { name: 'Ambition',          key: 'ambition',          good: 0.85,   bad: 0.65   },
+        { name: 'Confidence',        key: 'confidence',        good: 0,      bad: 1      },
+        { name: 'Focus',             key: 'focus',             good: 1.0,    bad: 0.75   },
+        { name: 'GuessAllRemaining', key: 'guessAllRemaining', good: true,   bad: false  },
+        { name: 'Endurance',         key: 'endurance',         good: 0.999,  bad: 0.995  },
+        { name: 'Exam Order',        key: 'exam',              good: reversed, bad: exam },
+    ],
+
+    // control value (not a trait — triggered only by confidence)
+    anxiety: 0.995,
+
+    // colors for bad trait count 0-6
+    badCountColors: ["#00AA00", "#88CC00", "#CCCC00", "#FF8800", "#FF4400", "#CC1100", "#880000"],
+
     // database
-    db: "domesticationDB",
+    db: "exam_sim",
     collection: "test"
 };
 
@@ -66,6 +75,15 @@ function shuffleArray(array) {
     return array;
 };
 
+function countBits(n) {
+    let count = 0;
+    while (n) {
+        count += n & 1;
+        n >>= 1;
+    }
+    return count;
+};
+
 function numArray(n) {
     let arr = [];
     for(let i = 0; i < n; i++) {
@@ -83,10 +101,12 @@ function hsl(h, s, l) {
 };
 
 function dload() {
-    let output = gameEngine.invigilator.histograms.join('\n');
-    let filename = "download.csv"
-    // console.log(output);
-    download(filename, output);
+    let rows = [];
+    for (const group of gameEngine.invigilator.groups) {
+        rows.push(group.label + "," + group.histogram.join(","));
+    }
+    let output = rows.join('\n');
+    download("download.csv", output);
 }
 
 function download(filename, text) {
@@ -108,14 +128,6 @@ function databaseDisconnected() {
     dbDiv.classList.add("db-disconnected");
 };
 
-function loadParameters() {
-    PARAMS.numStudents = parseInt(document.getElementById("num_students").value);
-    PARAMS.ambitionOptimal = document.getElementById("ambitionOptimal").checked;
-    PARAMS.confidenceOptimal = document.getElementById("confidenceOptimal").checked;
-    PARAMS.focusOptimal = document.getElementById("focusOptimal").checked;
-    PARAMS.enduranceOptimal = document.getElementById("enduranceOptimal").checked;
-    PARAMS.guessOptimal = document.getElementById("guessOptimal").checked;
-    PARAMS.examStratOptimal = document.getElementById("examStratOptimal").checked;
-};
+function loadParameters() {};
 
 const runs = [];
