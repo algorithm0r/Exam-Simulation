@@ -30,7 +30,7 @@ var PARAMS = {
     timeLimit: 360,
 
     // students
-    popPerGroup: 200,   // students per trait combination group (64 groups total)
+    popPerGroup: 10000,   // students per trait combination group (64 groups total)
     numTraits: 6,
 
     // traits: order here defines the bit order in the 6-bit group label (index 0 = MSB)

@@ -128,7 +128,7 @@ class Invigilator {
         ctx.rect(hX, hY, hW, hH);
         ctx.clip();
 
-        const yScale = 2;
+        const yScale = 1;
 
         ctx.fillStyle = "lightgrey";
         for (let s = 0; s <= PARAMS.numQuestions; s++) {
